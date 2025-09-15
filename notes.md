@@ -2,14 +2,10 @@
 
 **Main Problem** we're trying to solve: portfolio optimization by MVO. For a given
 return, we need to minize risk. The problem is formulated as
-$$
-\min_w w^T \Sigma w
-$$ 
+$$\min_w w^T \Sigma w$$ 
 
 subject to 
-$$
-\sum_{i=1}^n w_i = 1
-$$
+$$\sum_{i=1}^n w_i = 1 $$
  We could also have $w_i$
 sum to less than 0 if short selling, or less than a leverage ratio $L$. The other constraint is that $w^T \mu = \mu_{target}$.
 
