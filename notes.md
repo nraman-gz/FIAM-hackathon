@@ -1,12 +1,13 @@
 ### Meeting notes (9/14)
 
 **Main Problem** we're trying to solve: portfolio optimization by MVO. For a given
-return, we need to minize risk. The problem is formulated as
+return, we need to minize risk. The problem is formulated as \
 $$\min_w w^T \Sigma w$$ 
 
-subject to 
+subject to \
 $$\sum_{i=1}^n w_i = 1 $$
- We could also have $w_i$
+
+We could also have $w_i$
 sum to less than 0 if short selling, or less than a leverage ratio $L$. The other constraint is that $w^T \mu = \mu_{target}$.
 
 Where can we apply Machine Learning to MVO?
