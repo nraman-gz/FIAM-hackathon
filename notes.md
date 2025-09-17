@@ -1,8 +1,9 @@
 ### Meeting with Lucas
 * Judges are not too technical
-* They are aware of new technologies but surface level
-* Glaze Rus, research judges and find their biases
-* Regime detection will determine where to cluster or not
+* They are aware of new technologies but surface level (judges care bout techincals and P/L, they like numbers)
+* Glaze Rus, research judges and find their biases (but you must make sure your data has no bias)
+* The Pitch is the most important part (what Lucas did is he started with the slides and the idea, and after he made the algo) 
+* Regime detection will determine where to cluster or not (helps determine what market we are in) 
 * PPO (type of RL) where we optimize sharpe. RL agent learns how to trade. This
   can be a layer in the model
   * RL to find which features are important, smart way to decompose data
@@ -10,15 +11,21 @@
   * importance is in data manipulation and interpretation of the forecasts
   * kalman filtering
   * look into signal processing
+  * you can have repition sequences in signal capturing (days, months, years) and then you get a more accurate prediction
 * multiple sub-models that fed into one big model (easy to explain)
 * story, managing time, managing resources
+* OUR GOAL IS TO SELL A STORY: it must be interpreteable, forecast data and data manipulation (clean + model), what you want to sell is elegance, simplicity and creativity - you should be able to easily explain your approach 
+* something they forgot to consider is liquidity
+* baysian optimization
+* all other teams used neuro networks: we should stand out
 * use simple architecture but make it optimized
 * "temporal fusion" transformer (latest model from google deepmind)
   * had interpretability
   * transformers with sequential layers
   * make forecasts over longer horizons
+  * they used pythorch 
 * finding good alternative data
-  * WRDS, edgar (SEC gov data), satellite data, betting markets
+  * WRDS, edgar (SEC gov data), satellite data (image data), betting markets (manifest and crowd source alpha there)
   * weather (for forecasting)
   * showing how retail vs. insititution expectations diverge
   * electric grid transformers report heat data, use to predict price of
@@ -38,16 +45,19 @@
 * text data: take note of what isn't there, how complex is it (if it's more
   complex they're usually trying to hide something and company is less
   financially healthy)
+  * how stressed was the person, how much did they mumble, how many commas are in the text, how long are the sentances (management is a very good indicator - like jerome opening with good morning vs gentlemen) you can also look at deviation and variation and time of when reports are released 
 * very high dimensional space, we have to extract signal and denoise
 * another alternative source: audio data
 * use data to predict volatility regimes
 * signal in AI: where things are real vs. not real, what is valuable information
   vs. what isn't. we need to try to remove those useless fluctuations, find the
-  most predictive, without overfitting (30 powerful features)
+  most predictive, without overfitting (30 - 60 powerful features)
   * sequences of those features, sliding window vs. expanding window, we should
     choose sliding window
 * look at sponsor firms 
 * key takeaways: interpretable
+* Lucas made 5 models and thats what made him stand out, you want a good thesis and keep it simple - do something that people are scared of doing and try something new
+* Nick's firm is trying to act fast on high frequency data 
 
 
 
