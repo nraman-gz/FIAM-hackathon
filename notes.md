@@ -1,6 +1,6 @@
 ### Meeting with Lucas
 * Judges are not too technical
-* They are aware of new technologies but surface level
+* They are aware of new technologies but surface level (judges care bout techincals and P/L, they like numbers)
 * Glaze Rus, research judges and find their biases
 * Regime detection will determine where to cluster or not
 * PPO (type of RL) where we optimize sharpe. RL agent learns how to trade. This
