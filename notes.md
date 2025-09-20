@@ -1,3 +1,12 @@
+### Meeting 9/20
+* Leading vs. lagging indicators, should have a mixture?
+* macro forecasting (DSGE) for fundamentals, unemployment, inflation
+* regime detection
+* DCM
+  * $\alpha$^2 fund
+  * based quantitative model on goyenko's paper
+  * not that much hope in using text data for $\alpha$
+
 ### Meeting with Lucas
 * Judges are not too technical
 * They are aware of new technologies but surface level (judges care bout techincals and P/L, they like numbers)
