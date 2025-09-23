@@ -1,3 +1,29 @@
+### Meeting with Antoine
+* Multiprocessed data
+* Firedux (does multiprocessing for you)
+* Make the model as simple as you can (stick to an idea and dont try to
+  incorporate everything)
+* His idea
+  * filtered most of the feature data, stock by stock and specialized
+  * one model for each stock
+  * used XGBoost (random forest is also good)
+  * predicted returns, then inverse filtered to get back to data
+  * way to process features
+  * need MVP, can find more features if we have time
+  * data they gave us already has predictive power
+* should have explanation for how we process features, transform features to see
+  if they add anything (maybe down the line)
+* keep the structure of the code they gave (predicts returns, then constructs
+  portfolio)
+* different regimes have different viable factors
+* quality of slides + model that is original enough but not too complicated
+* checking for consistency of features over time, dropping could end up leaving
+  the ones that are not important
+* non parametric dimension reduction
+* he stood out by feature processing with fourier transform
+* denoised features have a lot of predictive power
+* parquet
+
 ### Meeting 9/20
 * Leading vs. lagging indicators, should have a mixture?
 * macro forecasting (DSGE) for fundamentals, unemployment, inflation
