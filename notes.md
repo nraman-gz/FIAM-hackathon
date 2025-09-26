@@ -68,6 +68,39 @@ text idea: process for extrotidanry events (mentioned in footnotes - but this is
 we would need natural language undestnading midel to pull this out 
 
 also to differentiate yourself, if you can think of another strategy or take external data that would be very good  - like some macro strategies maybe rates (how conflicts affect enrgy pirces and look into un the deep level) 
+### Meeting with Qingnan
+* Reinforcement learning refers to a reward-maximizing algorithm, agent is a
+  more complex system, not really necessary
+* What he did was train a time series forecasting model using RNN/LSTM
+* If we use deep learning, no need to manually shrink feature, but it will be a
+  black box
+* Suggested using lagged values, ensuring that no overlap between training and
+  testing data
+* Used MSE to evaluate model effectives, since this is a regression task
+* Used one model for all the stocks since the deep learning model is data-hungry
+* In the presentation, he said they tried a bunch of different fancy things but
+  they didn't actually
+* Be careful with transformer, doesn't recognize temporal aspect well
+* Start with LSTM, CNN, NLP
+* Sample workflow: CNN chooses important features, feeds into LSTM-AM which is able
+  to learn from time series, attention learns which time step is important,
+  outputs final embedding, and pass through linear layer
+* For first round, performance is the most important
+* Portfolio Optimization part:
+  * simply took the top X stocks that the model predicted ranked by SR
+  * didn't do long short because performance wasn't as good
+  * explain thought process well for presentation
+  * for example, data was noisy and they didn't do enough preprocessing to
+    denoise it
+  * AI approach could stand out, really shining in math standpoint; most people
+    there are into the quant finance space
+  * ideas for text data: took google API to assign sentiment score, there is a
+    small correlation to the next quarter's price
+  * identify extroadinary events that go unnoticed (event driven strategy) 
+  * if we find a paper that works, we know it's a sound approach and it's super
+    fancy
+  * external data can help us stand out (macro like interest rates, energy
+    prices, examine correlations)
 
 
 
