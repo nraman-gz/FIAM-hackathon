@@ -1,3 +1,70 @@
+### Meeith with Qingnan and Tony 
+
+
+training AI agents is not necessary 
+time series forecasting with training a transformer 
+if we use deep learning there is no need to do feature selection because it will do it automatically (this is a black box we will not be able to explain it) 
+we can send him the code and he will train the model? what a W guy 
+pythorch 
+nikhil used neuro networks and optimizers (which is enough) 
+Pandas: 
+to clean the data 
+the model only takes numbers 
+USA = 1, Canada = 2 (but he doesnt recommend this), to feed countries into the model he said drop that row idk or we will have buggs 
+they have 4 samples (for examplejan - may) and they try to estimate price in may, so they make each sample that has 4 timestamp inputs (then he drew a graph) 
+
+x and y - here these months are the four lags (this is a sliding window) MAKE SURE TRAINING NOT IN VALIDATION 
+1 - jan
+estimate for may 
+2 - feb
+new estimate for may 
+3 - march
+new estimate for may 
+4 - april 
+new estimate for may 
+
+or without using time series models, do it just for january, 
+you can also make the input in 1 for example as the return 
+
+Make sure: in the training data set we do not only fit the one time stamp information - krishna understood this I did not (training data set is not the same as validation data set) 
+we haev 20 years of data, we can take first 18 years as training as last 2 as validation 
+he used the sequence: 2, 4, 6 
+in deep learning, when it automatically chooses features, you still have to manually choose/put in the lagged series  (but this is in pre processing step of data set) 
+how do you evaluate which lag is best? they used mean squared value error because this is a regression 
+neuro networks are non linear 
+bayesian information criterion? like log likelihood 
+L1loss in pythorch - absolute error 
+end of prediction part
+
+reinforcement learning didnt work for portfolio optimization 
+they just used the provided code for portfolio optimization (they just feed the prediction part into that) 
+note: transformers do not have a mechanics that counts sequence, and also transformers need alot of data to perform well, hes not surw of we have enough data for that, so he recommends we start with LSTM (nikhil knows - long short term memory) and you try different (ssians??? Nikhil knows) and how to build an MLP 
+their model is CNN LSTM with AM 
+CNN chooses features along feature space and then feed that into LSTM (lstm can learn info from time sequence) and this is from the table of x and y above, LSTM learns whats mpst important and it gives us weighting from thetension volume, add it up we get final embedding, and the last step is to  pass with linear layer 
+part 2: financial intuition based on prediction on maximizing portfolio 
+Q: did they train 1 model for evry stock? 
+what they did is they trained 1 model that just works for every stock 
+train one model for each sector? this is doable 
+Presnetation: 
+come up w fancy stuff you dont need to prove it worked
+they j lied 
+they did not take into account trading costs liel broker fees 
+the thought process behind it should be well explained (thats his recommendation) 
+and if u have a cool idea but doesnt work then just use part of it 
+they are looking at your methodology and how you are thinking 
+AI approach can stand out (many ppl in quant but not AI or really shine in the math or ideally use both) 
+the guys name is Tony Xu 
+they just picked top 50 (they grouped it into 50’s) they went into the groups and took the best group (it might not have been the top group) 
+the portfolio optimization was just the template code, they didnt do any more optimization 
+they did not short the 50 lowest because they found that overall was not that good 
+
+text idea: process for extrotidanry events (mentioned in footnotes - but this is often already priced into the markets)  that ppl have missed (but he doesnt know this is hard) find correlation with next quarter price (what he did is rank via google API and assign a sentiment score and that had a small correlation to the next quarter price) - or we already this  - something that management downlpalyed the riks and then had it the next quarter (but this would be an event driven strategy) 
+we would need natural language undestnading midel to pull this out 
+
+also to differentiate yourself, if you can think of another strategy or take external data that would be very good  - like some macro strategies maybe rates (how conflicts affect enrgy pirces and look into un the deep level) 
+
+
+
 ### Meeting with Antoine
 * Multiprocessed data
 * Firedux (does multiprocessing for you)
