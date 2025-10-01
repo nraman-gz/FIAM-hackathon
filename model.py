@@ -4,90 +4,85 @@ import os
 import lightning.pytorch as pl
 from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor
 from lightning.pytorch.tuner import Tuner
-from pytorch_forecasting import TimeSeriesDataSet, LSTM, TemporalFusionTransformer
-from pytorch_forecasting.metrics import MASE
+from pytorch_forecasting import TimeSeriesDataSet, Baseline, DeepAR
+from pytorch_forecasting.metrics import MAE, RMSE, MultivariateNormalDistributionLoss
+
+if __name__ == "__main__":
+    work_dir = "/Users/nikhil/Documents/FIAM-hackathon"
+
+    # read sample data
+    file_path = os.path.join(work_dir, "sample.csv")
+    data = pd.read_csv(file_path, low_memory=False)
+
+    # read list of predictors for stocks
+    file_path = os.path.join(work_dir, "factor_char_list.csv")
+    stock_vars = list(pd.read_csv(file_path)["variable"].values)
+
+    # Keep only 20% of variables for testing
+    np.random.seed(42)
+    n_keep = int(len(stock_vars) * 0.5)
+    stock_vars = np.random.choice(stock_vars, size=n_keep, replace=False).tolist()
+
+    data["date"] = pd.to_datetime(data["date"],format="%Y%m%d")
+
+    # Fill missing entries with cross-sectional median for each month
+    data["year_month"] = data["date"].dt.to_period("M")
+    for var in stock_vars:
+        if var in data.columns:
+            data[var] = data.groupby("year_month")[var].transform(lambda x: x.fillna(x.median()))
+
+    # Drop variables that have missing values across all stocks for a given month
+    data = data.dropna(subset=stock_vars)
+
+    # Generate time index
+    data["time_idx"] = data["date"].dt.year * 12 + data["date"].dt.month
+    data["time_idx"] -= data["time_idx"].min()
+
+    train_max = data["time_idx"].max() - 24 # 2 Years
+
+    training = TimeSeriesDataSet(
+        data=data[lambda x: x.time_idx <= train_max],
+        time_idx="time_idx",
+        target="stock_ret",
+        group_ids=["id"],
+        min_encoder_length=12,
+        max_encoder_length=24,
+        min_prediction_length=1,
+        max_prediction_length=1,
+        time_varying_unknown_reals=["stock_ret"],
+        time_varying_known_reals=stock_vars,
+        allow_missing_timesteps=True,
+    )
 
 
-work_dir = "/Users/nikhil/Documents/FIAM-hackathon"
+    validation = TimeSeriesDataSet.from_dataset(training, data, min_prediction_idx=train_max + 1)
+    batch_size = 128
 
+    train_dataloader = training.to_dataloader(
+        train=True, batch_size=batch_size, num_workers=7, batch_sampler="synchronized", 
+    )
+    val_dataloader = validation.to_dataloader(
+        train=False, batch_size=batch_size, num_workers=7, batch_sampler="synchronized"
+    )
 
-# read sample data
-file_path = os.path.join(work_dir, "sample.csv") 
-data = pd.read_csv(file_path, low_memory=False)
+    # calculate baseline absolute error
+    baseline_predictions = Baseline().predict(val_dataloader, trainer_kwargs=dict(accelerator="mps"), return_y=True)
+    baselineRMSE = RMSE()(baseline_predictions.output, baseline_predictions.y)
 
-# read list of predictors for stocks
-file_path = os.path.join(work_dir, "factor_char_list.csv")
-stock_vars = list(pd.read_csv(file_path)["variable"].values)
+    print(baselineRMSE)
 
-original_count = len(stock_vars)
-stock_vars = [var for var in stock_vars if var in data.columns and data[var].notna().all()]
-dropped_count = original_count - len(stock_vars)
-print(f"Dropped {dropped_count} variables with missing values. {len(stock_vars)} variables remaining.")
+    pl.seed_everything(42)
 
-data["date"] = pd.to_datetime(data["date"],format="%Y%m%d")
-
-train_max = pd.to_datetime("20230630", format="%Y%m%d")
-
-train_data = data[data['date'] <= train_max]
-train_data["time_idx"] = train_data["date"].dt.year * 12 + train_data["date"].dt.month
-train_data["time_idx"] -= train_data["time_idx"].min()
-
-
-TSdata = TimeSeriesDataSet(
-    data=train_data,
-    time_idx="time_idx",
-    target="stock_ret",
-    group_ids=["id"],
-    min_encoder_length=12,
-    max_encoder_length=24,
-    min_prediction_length=1,
-    max_prediction_length=1,
-    time_varying_unknown_reals=["stock_ret"] + stock_vars,
-    allow_missing_timesteps=True
-)
-
-# Create dataloaders
-train_dataloader = TSdata.to_dataloader(train=True, batch_size=64, num_workers=0)
-
-# Initialize LSTM model
-lstm_model = LSTM.from_dataset(
-    TSdata,
-    hidden_size=50,
+    trainer = pl.Trainer(accelerator="cpu", gradient_clip_val=1e-1)
+    net = DeepAR.from_dataset(
+    training,
+    learning_rate=1e-3,
+    hidden_size=30,
     rnn_layers=2,
-    dropout=0.1,
-    learning_rate=0.001,
-    reduce_on_plateau_patience=4
-)
+    loss=MultivariateNormalDistributionLoss(rank=30),
+    optimizer="Adam",
+    )
 
-# Setup trainer
-trainer = pl.Trainer(
-    max_epochs=10,
-    accelerator="auto",
-    callbacks=[
-        EarlyStopping(monitor="train_loss", patience=3),
-        LearningRateMonitor()
-    ]
-)
-
-# Train the model
-trainer.fit(lstm_model, train_dataloaders=train_dataloader)
-
-# Prepare test data
-test_data = data[data['date'] > train_max].copy()
-test_data["time_idx"] = test_data["date"].dt.year * 12 + test_data["date"].dt.month
-test_data["time_idx"] -= train_data["time_idx"].min()
-
-# Create test dataset
-test_dataset = TimeSeriesDataSet.from_dataset(TSdata, test_data, predict=True, stop_randomization=True)
-test_dataloader = test_dataset.to_dataloader(train=False, batch_size=64, num_workers=0)
-
-# Generate predictions
-predictions = lstm_model.predict(test_dataloader, mode="prediction", return_x=True)
-
-# Calculate MSE
-actuals = predictions.x["decoder_target"].numpy()
-preds = predictions.output.numpy()
-mse = np.mean((actuals - preds) ** 2)
-
-print(f"Out-of-sample MSE: {mse:.6f}")
+    
+    
 
