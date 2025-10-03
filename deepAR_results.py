@@ -6,6 +6,7 @@ from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor
 from lightning.pytorch.tuner import Tuner
 from pytorch_forecasting import TimeSeriesDataSet, Baseline, DeepAR
 from pytorch_forecasting.metrics import MAE, RMSE, MultivariateNormalDistributionLoss
+import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     work_dir = "/Users/nikhil/Documents/FIAM-hackathon"
@@ -65,12 +66,6 @@ if __name__ == "__main__":
         train=False, batch_size=batch_size, num_workers=7, batch_sampler="synchronized"
     )
 
-    # calculate baseline absolute error
-    baseline_predictions = Baseline().predict(val_dataloader, trainer_kwargs=dict(accelerator="mps"), return_y=True)
-    baselineRMSE = RMSE()(baseline_predictions.output, baseline_predictions.y)
-
-    print(baselineRMSE)
-
     pl.seed_everything(42)
 
     early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=1e-4, patience=10, verbose=False, mode="min")
@@ -85,31 +80,14 @@ if __name__ == "__main__":
         enable_checkpointing=True,
     )
 
-    net = DeepAR.from_dataset(
-        training,
-        learning_rate=1e-2,
-        log_interval=10,
-        log_val_interval=1,
-        hidden_size=30,
-        rnn_layers=2,
-        optimizer="Adam",
-        loss=MultivariateNormalDistributionLoss(rank=30),
-    )
-
-    trainer.fit(
-        net,
-        train_dataloaders=train_dataloader,
-        val_dataloaders=val_dataloader,
-    )
-
-    best_model_path = trainer.checkpoint_callback.best_model_path
-    best_model = DeepAR.load_from_checkpoint(best_model_path)
+    best_model = DeepAR.load_from_checkpoint("lightning_logs/version_36/checkpoints/epoch=20-step=1050.ckpt")
 
     # best_model = net
     predictions = best_model.predict(val_dataloader, trainer_kwargs=dict(accelerator="cpu"), return_y=True)
     print(MAE()(predictions.output, predictions.y))
 
-    raw_predictions = net.predict(val_dataloader, mode="raw", return_x=True, n_samples=100, trainer_kwargs=dict(accelerator="cpu"))
+    raw_predictions = best_model.predict(val_dataloader, mode="raw", return_x=True, n_samples=100, trainer_kwargs=dict(accelerator="cpu"))
 
-    series = validation.x_to_index(raw_predictions.x)['series']
-    best_model.plot_prediction(raw_predictions.x, raw_predictions.output, add_loss_to_title=True)
+    best_model.plot_prediction(raw_predictions.x, raw_predictions.output)
+
+    plt.show()

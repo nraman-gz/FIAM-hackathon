@@ -2,5 +2,8 @@ sample code/
 venv/*
 **/.DS_Store
 FIAM-hackathon.code-workspace
-*/.yaml
 data_example.csv
+*.yaml
+*.yml
+lightning_logs/*
+__pycache__/*
