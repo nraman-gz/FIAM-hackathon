@@ -12,3 +12,6 @@ iter0_predictions.csv
 iter1_predictions.csv
 plot_predictions.py
 prediction_analysis.png
+data processing PCA/cleaned data/cleaned_PCA_data.parquet
+data processing PCA/cleaned data/cleaned_test_financial_data_with_pca.parquet
+data processing PCA/cleaned data/cleaned_train_financial_data_with_pca.parquet
