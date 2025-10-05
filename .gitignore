@@ -7,3 +7,8 @@ data_example.csv
 *.yml
 lightning_logs/*
 __pycache__/*
+diagnostic_plots.png
+iter0_predictions.csv
+iter1_predictions.csv
+plot_predictions.py
+prediction_analysis.png
