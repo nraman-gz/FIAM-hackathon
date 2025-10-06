@@ -6,5 +6,7 @@ test_df = pd.read_parquet("data processing PCA/cleaned data/cleaned_test_financi
 
 combined_df = pd.concat([train_df, test_df], ignore_index=True)
 
+print(combined_df.head(100))
+
 # Save to a new parquet file
 combined_df.to_parquet("data processing PCA/cleaned data/combined_financial_data_with_pca.parquet", index=False)

@@ -15,3 +15,13 @@ prediction_analysis.png
 data processing PCA/cleaned data/cleaned_PCA_data.parquet
 data processing PCA/cleaned data/cleaned_test_financial_data_with_pca.parquet
 data processing PCA/cleaned data/cleaned_train_financial_data_with_pca.parquet
+test_xgboost_raw.py
+data processing PCA/cleaned data/combined_financial_data_with_pca.parquet
+data processing PCA/join_data.py
+plot_kalman_comparison.py
+make_predictions_iter1.py
+lightgbm_model.py
+filter_us_stocks.py
+deepar_all_iterations.py
+deepAR_results.py
+data processing PCA/join_data.py

@@ -2,12 +2,26 @@ import pandas as pd
 import numpy as np
 import os
 import lightning.pytorch as pl
-from lightning.pytorch.callbacks import EarlyStopping, LearningRateMonitor, ModelCheckpoint
-from lightning.pytorch.tuner.tuning import Tuner
+from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_forecasting import TimeSeriesDataSet, Baseline, DeepAR, LSTM, TemporalFusionTransformer
 from pytorch_forecasting.models.temporal_fusion_transformer.tuning import optimize_hyperparameters
 import optuna, statsmodels, pickle
 from pytorch_forecasting.metrics import MAE, RMSE, MultivariateNormalDistributionLoss, QuantileLoss
+import logging
+
+# Set up comprehensive logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('optuna_optimization.log'),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Set optuna logging to be verbose
+optuna.logging.set_verbosity(optuna.logging.INFO)
 
 def hidden_size_search(model,sizes, data, train_dataloaders, val_dataloaders):
 
@@ -40,12 +54,16 @@ if __name__ == "__main__":
 
     # read sample data
     file_path = os.path.join(work_dir, "cleaned_PCA_data.parquet")
-    study_path = os.path.join(work_dir, "checkpoints/iter_0")
-    data = pd.read_parquet(file_path, low_memory=False)
+    study_path = os.path.join(work_dir, "checkpoints/iter_0/trial_0")
+    data = pd.read_parquet(file_path)
+
+    logger.info(f"Loaded data with shape: {data.shape}")
 
     # read list of predictors for stocks
     file_path = os.path.join(work_dir, "features.csv")
-    stock_vars = list(pd.read_csv(file_path)["variable"].values)
+    stock_vars = list(pd.read_csv(file_path)["feature"].values)
+
+    logger.info(f"Using {len(stock_vars)} stock variables")
 
     data["date"] = pd.to_datetime(data["date"],format="%Y%m%d")
 
@@ -63,6 +81,8 @@ if __name__ == "__main__":
     while (starting + pd.DateOffset(years=11 + counter)) <= pd.to_datetime(
         "20260101", format="%Y%m%d"
     ):
+        logger.info(f"Starting iteration {counter}, date range: {starting} to {starting + pd.DateOffset(years=11)}")
+        
         cutoff = [
             starting,
             starting
@@ -76,6 +96,8 @@ if __name__ == "__main__":
             starting + pd.DateOffset(years=11),
         ]  # use the next year as the out-of-sample testing set
 
+        logger.info(f"Cutoff dates - Train: {cutoff[0]} to {cutoff[1]}, Val: {cutoff[1]} to {cutoff[2]}, Test: {cutoff[2]} to {cutoff[3]}")
+
         # Convert cutoff dates to time_idx
         train_mask = (data["date"] >= cutoff[0]) & (data["date"] < cutoff[1])
         val_mask = (data["date"] >= cutoff[1]) & (data["date"] < cutoff[2])
@@ -85,16 +107,18 @@ if __name__ == "__main__":
         val_data = data.loc[val_mask].copy()
         test_data = data.loc[test_mask].copy()
 
+        logger.info(f"Data splits - Train: {len(train_data)}, Val: {len(val_data)}, Test: {len(test_data)}")
+
         train_max = train_data["time_idx"].max()
 
         training = TimeSeriesDataSet(
         data=train_data,
         time_idx="time_idx",
         target="stock_ret",
-        group_ids=["id"],
-        min_encoder_length=12,
+        group_ids=["gvkey"],
+        min_encoder_length=3,
         max_encoder_length=24,
-        min_prediction_length=12,
+        min_prediction_length=1,
         max_prediction_length=12,
         time_varying_unknown_reals=["stock_ret"],
         time_varying_known_reals=stock_vars,
@@ -103,13 +127,15 @@ if __name__ == "__main__":
 
         validation = TimeSeriesDataSet.from_dataset(training, val_data, min_prediction_idx=train_max + 1)
 
-        batch_size = 512
+        batch_size = 6144
 
         train_dataloader = training.to_dataloader(
-            train=True, batch_size=batch_size, num_workers=2, batch_sampler="synchronized")
+            train=True, batch_size=batch_size, num_workers=8, persistent_workers = True,batch_sampler="synchronized")
         
         val_dataloader = validation.to_dataloader(
-            train=False, batch_size=batch_size, num_workers=2, batch_sampler="synchronized")
+            train=False, batch_size=batch_size, num_workers=8, persistent_workers = True,batch_sampler="synchronized")
+
+        logger.info(f"Created dataloaders with batch_size={batch_size}")
 
         pl.seed_everything(42)
 
@@ -131,7 +157,9 @@ if __name__ == "__main__":
         existing_checkpoints = [f for f in os.listdir(checkpoint_dir) if f.endswith('.ckpt')] if os.path.exists(checkpoint_dir) else []
 
         trainer = pl.Trainer(
-            max_epochs=30,
+            max_epochs=15,
+            precision = "32",
+            profiler = "simple",
             accelerator="gpu",
             enable_model_summary=True,
             gradient_clip_val=0.1,
@@ -153,57 +181,83 @@ if __name__ == "__main__":
 
         # Tune hyperparameters (batch size, learning rate, hidden layer size)
         if os.path.exists(study_path):
-            chkpt_path = "checkpoints/iter_0/trial_10/epoch=0.ckpt"
+            logger.info(f"Loading existing study from {study_path}")
+            chkpt_path = "checkpoints/iter_0/trial_0/epoch=1.ckpt"
             chkpt_model = TemporalFusionTransformer.load_from_checkpoint(chkpt_path)
             best_hparams = dict(chkpt_model.hparams)
+            logger.info(f"Loaded best hyperparameters: {best_hparams}")
 
-        elif counter == 0:
-            # tuner = Tuner(trainer)
-            # tuned_batch_size = tuner.scale_batch_size(tft_model, 
-            #                        train_dataloaders=train_dataloader,
-            #                        val_dataloaders=val_dataloader)
-            # optimal_batch_size = tuned_batch_size if tuned_batch_size is not None else batch_size
-            optmal_batch_size = 128 # hardcode for now, does not work
-            # optimal_lr = tuner.lr_find(tft_model,
-            #               train_dataloaders=train_dataloader,
-            #               val_dataloaders=val_dataloader,
-            #               min_lr = 1e-6,
-            #               max_lr=1e-2)
+        # elif counter == 0:
+        #     logger.info("Starting hyperparameter optimization...")
+        #     logger.info("Search spaces:")
+        #     logger.info("  - hidden_size: (64, 256)")
+        #     logger.info("  - learning_rate: (1e-5, 1e-1)")
+        #     logger.info("  - attention_head_size: (1, 4)")
+        #     logger.info("  - dropout: (0.1, 0.3)")
+        #     logger.info("  - n_trials: 5")
+            
+        #     # tuner = Tuner(trainer)
+        #     # tuned_batch_size = tuner.scale_batch_size(tft_model, 
+        #     # train_dataloaders=train_dataloader,
+        #     # val_dataloaders=val_dataloader)
+        #     # optimal_batch_size = tuned_batch_size if tuned_batch_size is not None else batch_size
+        #     # hardcode for now, does not work
+        #     # optimal_lr = tuner.lr_find(tft_model,
+        #     #               train_dataloaders=train_dataloader,
+        #     #               val_dataloaders=val_dataloader,
+        #     #               min_lr = 1e-6,
+        #     #               max_lr=1e-2)
 
-            # optimal_hidden_size = hidden_size_search(sizes=[8,16,32,64],
-            #                                          data = training,
-            #                                          train_dataloaders=train_dataloader,
-            #                                          val_dataloaders=val_dataloader)
+        #     # optimal_hidden_size = hidden_size_search(sizes=[8,16,32,64],
+        #     #                                          data = training,
+        #     #                                          train_dataloaders=train_dataloader,
+        #     #                                          val_dataloaders=val_dataloader)
 
-            study = optimize_hyperparameters(
-                train_dataloaders=train_dataloader,
-                val_dataloaders=val_dataloader,
-                model_path=checkpoint_dir,
-                hidden_size_range=(64,256),
-                learning_rate_range=(1e-5, 1e-1),
-                attention_head_size_range=(1, 4),
-                dropout_range=(0.1, 0.3),
-                n_trials=5
-            )
+        #     study = optimize_hyperparameters(
+        #         train_dataloaders=train_dataloader,
+        #         val_dataloaders=val_dataloader,
+        #         model_path=checkpoint_dir,
+        #         hidden_size_range=(64,256),
+        #         learning_rate_range=(1e-5, 1e-1),
+        #         attention_head_size_range=(1, 4),
+        #         dropout_range=(0.1, 0.3),
+        #         n_trials=5,
+        #         trainer_kwargs=dict(max_epochs=15)  
+        #     )
 
-            # Save study results to load for later iterations
-            with open("test_study.pkl", "wb") as fout:
-                pickle.dump(study, fout)
+        #     logger.info("Hyperparameter optimization completed!")
+        #     logger.info(f"Best trial value: {study.best_value}")
+        #     logger.info(f"Best parameters: {study.best_params}")
+            
+        #     # Save detailed study results
+        #     study_df = study.trials_dataframe()
+        #     study_df.to_csv(os.path.join(work_dir, "detailed_study_results.csv"), index=False)
+        #     logger.info("Saved detailed study results to detailed_study_results.csv")
 
-        else:
-            # Load study results from first iteration
-            with open("test_study.pkl", "rb") as fin:
-                
-                study = pickle.load(fin)
-                best_hparams = dict(study)
+        #     # Save study results to load for later iterations
+        #     study_path_pkl = os.path.join(work_dir, "test_study.pkl")
+        #     with open(study_path_pkl, "wb") as fout:
+        #         pickle.dump(study, fout)
+        #     logger.info(f"Saved study to {study_path_pkl}")
 
+        #     best_hparams = study.best_params
 
+        # else:
+        #     logger.info(f"Loading study results for iteration {counter}")
+        #     # Load study results from first iteration
+        #     study_path_pkl = os.path.join(work_dir, "test_study.pkl")
+        #     with open(study_path_pkl, "rb") as fin:
+        #         study = pickle.load(fin)
+        #         best_hparams = study.best_params
+        #     logger.info(f"Using best hyperparameters from iteration 0: {best_hparams}")
+
+        logger.info(f"Final hyperparameters for training: {best_hparams}")
 
         train_dataloader = training.to_dataloader(
-            train=True, batch_size=batch_size,num_workers=2,batch_sampler="synchronized")
+            train=True, batch_size=batch_size,num_workers=8,persistent_workers = True,batch_sampler="synchronized")
         
         val_dataloader = validation.to_dataloader(
-            train=False,batch_size=batch_size,num_workers=2,batch_sampler="synchronized")
+            train=False,batch_size=batch_size,num_workers=8,persistent_workers = True,batch_sampler="synchronized")
 
         tft_model = TemporalFusionTransformer.from_dataset(
             training,
@@ -220,14 +274,16 @@ if __name__ == "__main__":
         ckpt_path = os.path.join(checkpoint_dir, existing_checkpoints[0]) if existing_checkpoints else None
 
         if ckpt_path:
-            print(f"Resuming iteration {counter} from checkpoint: {ckpt_path}")
+            logger.info(f"Resuming iteration {counter} from checkpoint: {ckpt_path}")
 
+        logger.info(f"Starting training for iteration {counter}...")
         trainer.fit(
             tft_model,
             train_dataloaders=train_dataloader,
             val_dataloaders=val_dataloader,
             ckpt_path=ckpt_path
         )
+        logger.info(f"Training completed for iteration {counter}")
 
         # calculate baseline absolute error
         # baseline_predictions = Baseline().predict(val_dataloader, trainer_kwargs=dict(accelerator="mps"), return_y=True)
@@ -250,6 +306,7 @@ if __name__ == "__main__":
         # (given that we use early stopping, this is not necessarily the last epoch)
         best_model_path = checkpoint_callback.best_model_path
         best_tft = TemporalFusionTransformer.load_from_checkpoint(best_model_path)
+        logger.info(f"Loaded best model from: {best_model_path}")
 
         # Create test dataset for predictions
         # Need to use train+val data as encoder to predict test period
@@ -267,9 +324,10 @@ if __name__ == "__main__":
             stop_randomization=True
         )
         test_dataloader = test_dataset.to_dataloader(
-            train=False, batch_size=batch_size, num_workers=2
+            train=False, batch_size=batch_size, num_workers=8
         )
 
+        logger.info("Generating predictions...")
         # Make predictions - this will predict max_prediction_length (12 months) ahead
         test_predictions = best_tft.predict(test_dataloader, mode="prediction", return_x=True, trainer_kwargs=dict(accelerator="gpu"))
 
@@ -286,6 +344,8 @@ if __name__ == "__main__":
             preds = test_predictions.output.cpu().numpy()
         else:
             raise ValueError(f"Unexpected prediction shape: {test_predictions.output.shape}")
+
+        logger.info(f"Generated predictions with shape: {preds.shape}")
 
         # Create long format dataframe
         # In predict=True mode, predictions start from val_max + 1 (test period)
@@ -314,6 +374,8 @@ if __name__ == "__main__":
         # Save prediction progress
         local_prediction_filename = os.path.join(work_dir, f"iter{counter}_predictions.csv")
         test_pred_df.to_csv(local_prediction_filename)
+        logger.info(f"Saved predictions for iteration {counter} to {local_prediction_filename}")
+        logger.info(f"Prediction summary: {len(test_pred_df)} predictions generated")
 
         # Append to overall output
         pred_out = pd.concat([pred_out, test_pred_df], ignore_index=True)
@@ -323,3 +385,5 @@ if __name__ == "__main__":
     #Save all predictions to file
     out_path = os.path.join(work_dir, "output.csv")
     pred_out.to_csv(out_path, index=False)
+    logger.info(f"Final output saved to {out_path}")
+    logger.info(f"Total predictions: {len(pred_out)}")
