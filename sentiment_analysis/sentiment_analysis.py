@@ -6,6 +6,11 @@ import numpy as np
 from torch.nn.functional import softmax 
 import re
 
+'''
+this script performs sentiment analysis on long financial texts using a fine-tuned BERT model
+it handles long texts by splitting them into manageable chunks and aggregating the results
+'''
+
 class BERTSentimentAnalyzer: 
     def __init__(self, model_name="yiyanghkust/finbert-tone"): 
         """ 
